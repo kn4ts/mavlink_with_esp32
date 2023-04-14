@@ -1,9 +1,11 @@
 // 割り込み関数
 void IRAM_ATTR onTimer() {
   digitalWrite(LED_PIN, !digitalRead(LED_PIN));  // LEDピンをトグルする
+
   Flag_timer = 1;
 }
 
+// タイマーの設定関数
 void setupTimer(){
   /* =========================================================================================================
 	タイマー関数の設定

@@ -1,10 +1,9 @@
-// 関数定義
-// void Mav_Heartbeat() {
-//   // Pack the message
-
-// }
-
+// メッセージ要求関数
 void Mav_Request_Data() {
+  // リクエスト用のメッセージとバッファの初期化
+  // Send the message with the standard UART send function
+  // uart0_send might be named differently depending on
+  // the individual microcontroller / library in use.
   mavlink_message_t msg;
   uint8_t buf[MAVLINK_MAX_PACKET_LEN];
 
@@ -29,15 +28,16 @@ void Mav_Request_Data() {
    */
 
   // To be setup according to the needed information to be requested from the Pixhawk
-  const int maxStreams = 2;  // ストリームの数の設定
+  const int maxStreams = 1;  // ストリームの数の設定
   // ストリームの内訳の設定
 //  const uint8_t MAVStreams[maxStreams] = { MAV_DATA_STREAM_EXTENDED_STATUS } ; //,  // extended status
-  const uint8_t MAVStreams[maxStreams] = { MAV_DATA_STREAM_ALL } ; //,  //
+  const uint8_t MAVStreams[maxStreams] = { MAV_DATA_STREAM_RAW_SENSORS } ; //,  //
                                            //MAV_DATA_STREAM_EXTRA1 };         // extra1
   // データストリーム毎のデータレート指定[Hz]
   const uint16_t MAVRates[maxStreams] = { 0x01 }; //,    // 2[Hz]
                                          // 0x01 };  // 5[Hz]
 
+  // ストリームごとの繰り返し文
   for (int i = 0; i < maxStreams; i++) {
     /*
      * mavlink_msg_request_data_stream_pack(system_id, component_id, 
@@ -51,104 +51,127 @@ void Mav_Request_Data() {
      *    uint16_t req_message_rate, uint8_t start_stop)
      * 
      */
+    // 要求用 メッセージの作成関数
     mavlink_msg_request_data_stream_pack(
       2,              // System ID
       200,            // Component ID
-      &msg,           // メッセージ変数
+      &msg,           // メッセージを格納する変数
       1,              // Target System ID
       0,              // Target Component ID
       MAVStreams[i],  // 要求ストリーム ID
       MAVRates[i],    // 要求メッセージ ID
       1);             // 開始・停止？
+    
+    // 送信用バッファにメッセージの内容をコピー
     uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+    // 送信用バッファの内容を Serial2 に書き込み
     Serial2.write(buf, len);
 
+    // デバッグ用表示
+    Serial.println();
     Serial.print("MAV Request data, len = ");
-    Serial.println(len);
+    Serial.print(len);
+    Serial.print(", max len = ");
+    Serial.println(MAVLINK_MAX_PACKET_LEN);
   }
 }
 
-// 受信関数
+// メッセージ受信関数
 void comm_receive() {
-  mavlink_message_t msg;
-  mavlink_status_t status;
 
-  while (Serial2.available() > 0) {
-    uint8_t c = Serial2.read();
+  int cnt = 0; // byte型の読み込み回数カウンタ
 
-    // Try to get a new message
-    if (mavlink_parse_char(MAVLINK_COMM_0, c, &msg, &status)) {
-      Serial.println("a message could be decorded !!!!!!!!");
+  // Serial2の受信バッファにデータがあればループ
+  while( Serial2.available() > 0 ){
 
-      // Handle message
-      switch (msg.msgid) {
-        case MAVLINK_MSG_ID_HEARTBEAT:  // #0: Heartbeat
-          {
-            // E.g. read GCS heartbeat and go into
-            // comm lost mode if timer times out
-            Serial.println("Switch 1");
-          }
-          break;
+    uint8_t c = Serial2.read(); // 1文字読み込み
 
-        case MAVLINK_MSG_ID_SYS_STATUS:  // #1: SYS_STATUS
-          {
-            /* Message decoding: PRIMITIVE
-             *    mavlink_msg_sys_status_decode(const mavlink_message_t* msg, mavlink_sys_status_t* sys_status)
-             */
-            //mavlink_message_t* msg;
-            mavlink_sys_status_t sys_status;
-            mavlink_msg_sys_status_decode(&msg, &sys_status);
-            Serial.println("Switch 2");
-          }
-          break;
+    // 0. 開始点（"253"）の検知
+    if( c == 253 ){
+      // デバッグ用表示
+      // Serial.println(cnt); // 読み込み数カウントの表示
+      char cbuf[4] ;
+      sprintf(cbuf, "%03d ", c);
+      Serial.print(cbuf);
 
-        case MAVLINK_MSG_ID_PARAM_VALUE:  // #22: PARAM_VALUE
-          {
-            /* Message decoding: PRIMITIVE
-             *    mavlink_msg_param_value_decode(const mavlink_message_t* msg, mavlink_param_value_t* param_value)
-             */
-            //mavlink_message_t* msg;
-            mavlink_param_value_t param_value;
-            mavlink_msg_param_value_decode(&msg, &param_value);
-            Serial.println("Switch 3");
-          }
-          break;
+      // 1. len を読む
+      while( Serial2.available() < 1 ); // 受信バッファに1文字たまるまで待つ
+      uint8_t clen = Serial2.read();    // 1文字読み込み
+      sprintf(cbuf, "%03d ", clen);     // 文字列を10進整数として整形
+      Serial.print(cbuf);               // デバッグ用表示
 
-        case MAVLINK_MSG_ID_RAW_IMU:  // #27: RAW_IMU
-          {
-            /* Message decoding: PRIMITIVE
-             *    static inline void mavlink_msg_raw_imu_decode(const mavlink_message_t* msg, mavlink_raw_imu_t* raw_imu)
-             */
-            mavlink_raw_imu_t raw_imu;
-            mavlink_msg_raw_imu_decode(&msg, &raw_imu);
-            Serial.println("Switch 4");
-          }
-          break;
+      // 2. incompatibility flag を読む
+      while( Serial2.available() < 1 );
+      c = Serial2.read();
+      sprintf(cbuf, "%03d ", c);
+      Serial.print(cbuf);
 
-        case MAVLINK_MSG_ID_ATTITUDE:  // #30
-          {
-            /* Message decoding: PRIMITIVE
-             *    mavlink_msg_attitude_decode(const mavlink_message_t* msg, mavlink_attitude_t* attitude)
-             */
-            mavlink_attitude_t attitude;
-            mavlink_msg_attitude_decode(&msg, &attitude);
+      // 3. compatibility flag を読む
+      while( Serial2.available() < 1 );
+      c = Serial2.read();
+      sprintf(cbuf, "%03d ", c);
+      Serial.print(cbuf);
 
-            //if(attitude.roll>1) leds_modo = 0;
-            //else if(attitude.roll<-1) leds_modo = 2;
-            //else leds_modo=1;
-            //Serial.println(attitude) ;
-            Serial.println("Switch 5");
-          }
-          break;
+      // 4. packet sequence number を読む
+      while( Serial2.available() < 1 );
+      c = Serial2.read();
+      sprintf(cbuf, "%03d ", c);
+      Serial.print(cbuf);
 
-        default:
-          {
-            Serial.println("No data...");
-      	  }
-          break;
+      // 5. System id を読む
+      while( Serial2.available() < 1 );
+      c = Serial2.read();
+      sprintf(cbuf, "%03d ", c);
+      Serial.print(cbuf);
+
+      // 6. Component id を読む
+      while( Serial2.available() < 1 );
+      c = Serial2.read();
+      sprintf(cbuf, "%03d ", c);
+      Serial.print(cbuf);
+
+      // 7 to 9. Message id を読む
+      while( Serial2.available() < 3 );
+      uint8_t c0 = Serial2.read();
+      uint8_t c1 = Serial2.read();
+      uint8_t c2 = Serial2.read();
+      char cbuf3[18+1] ;
+      sprintf(cbuf3, "[ %03d, %03d, %03d ] ", c0, c1, c2);
+      Serial.print(cbuf3);
+
+      // 9+clen. Payload を読む
+      if ( clen > 0 ){      // Payload の長さが0より大きいとき
+        Serial.print("[ "); // かっこはじまり
+        for ( int i = 0; i<clen ; i++ ){  // Payload の長さ分読み込み・表示ループ
+          while( Serial2.available() < 1 );
+          c = Serial2.read();
+          sprintf(cbuf, "%03d ", c);
+          Serial.print(cbuf);
+        }
+        Serial.print("] "); // かっこ終わり
       }
-    }else{
-        Serial.println("no message could be decorded...");
+
+      // 10+clen to 11+clen. checksum を読む
+      while( Serial2.available() < 2 );
+      c0 = Serial2.read();
+      c1 = Serial2.read();
+      char cbuf2[13+1] ;
+      sprintf(cbuf2, "[ %03d, %03d ] ", c0, c1);
+      Serial.print(cbuf2);
+
+      // // 12+clen to 25+clen. checksum を読む
+      // while( Serial2.available() < 2 );
+      // c0 = Serial2.read();
+      // c1 = Serial2.read();
+      // char cbuf2[13+1] ;
+      // sprintf(cbuf2, "[ %03d, %03d ] ", c0, c1);
+      // Serial.print(cbuf2);
+
+      Serial.println(); // 改行
+      
+      break ; // while文を抜ける
     }
+    // Serial.print(c);
+    cnt++ ; // 空の読み込み回数カウントアップ
   }
 }

@@ -1,26 +1,23 @@
 #include <mavlink.h>
-#include "mytimer.h"
-#include "mymavlink.h"
+#include "mytimer.h"    // 自作タイマー用ヘッダファイルを追加
+#include "mymavlink.h"  // 自作
 
-#define LED_PIN A10        // LEDピンを定義
+#define LED_PIN A10        // LEDピンを定義（デバッグ用）
 
 // Setup関数
 void setup() {
   Serial.begin(115200);      // シリアル通信（USB）を開始
   pinMode(LED_PIN, OUTPUT);  // LEDピンを出力に設定
 
-  setupTimer();	// タイマー設定
+  setupTimer();	// タイマー設定用の関数
 
   Serial2.begin(57600);      // シリアル通信（to Pixhawk6c）を開始
-
-  // Mav_Heartbeat() ;
-  // Serial2.write(buf, len);
 }
 
 // Loop関数
 void loop() {
   /* =========================================================================================================
-	MAVLinkの設定
+	 HeartBeat通信用の設定
   ========================================================================================================= */
   // MAVLink config
   /* The default UART header for your MCU */
@@ -37,39 +34,51 @@ void loop() {
   uint32_t custom_mode = 0;                  ///< Custom mode, can be defined by user/adopter
   uint8_t system_state = MAV_STATE_STANDBY;  ///< System ready for flight
 
-  // Initialize the required buffers
-  mavlink_message_t msg;
-  uint8_t buf[MAVLINK_MAX_PACKET_LEN];  // バッファの確保
+  // リクエスト用のメッセージとバッファの初期化
+  mavlink_message_t msg_hb;
+  uint8_t buf_hb[MAVLINK_MAX_PACKET_LEN];  // バッファの確保
 
+  // HeartBeat のメッセージを作成
   mavlink_msg_heartbeat_pack(
     sysid,           // System ID
     compid,          // Component ID
-    &msg,            // メッセージ変数
+    &msg_hb,         // メッセージを格納する変数
     type,            // タイプ
     autopilot_type,  // Autopilotタイプ
     system_mode,     // System mode
     custom_mode,     // Custom mode
     system_state);   // System State
 
-  // Copy the message to the send buffer
-  uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+  // 送信用バッファにメッセージの内容をコピー
+  uint16_t len_hb = mavlink_msg_to_send_buffer(buf_hb, &msg_hb);
+  /* =========================================================================================================
+	 HeartBeat通信用の設定（ここまで）
+  ========================================================================================================= */
 
-  // Send the message with the standard UART send function
-  // uart0_send might be named differently depending on
-  // the individual microcontroller / library in use.
-  
+  // // リクエスト用のメッセージとバッファの初期化
+  // // Send the message with the standard UART send function
+  // // uart0_send might be named differently depending on
+  // // the individual microcontroller / library in use.
+  // mavlink_message_t msg;  // メッセージの宣言
+  // uint8_t buf[MAVLINK_MAX_PACKET_LEN];  // バッファの確保
+
+  // タイマー割り込みフラグが上がっていたら
   if (Flag_timer > 0 ){
-  	//Mav_Request_Data();
-  	Serial2.write(buf, len);
-  	Flag_timer = 0;
+    // HeartBeat 通信の送信
+    Serial2.write(buf_hb, len_hb);
 
-    //Mav_Request_Data();
+    // MAV data の要求
     num_hbs_pasados++;
     if(num_hbs_pasados>=num_hbs) {
-      // Request streams from Pixhawk
+      // Pixhawk からの stream を要求する
       Mav_Request_Data();
       num_hbs_pasados=0;
     }
+
+    // タイマー割り込みフラグをおろす
+  	Flag_timer = 0;
   }
- comm_receive();
+
+  // メッセージ受信関数
+  comm_receive();
 }
