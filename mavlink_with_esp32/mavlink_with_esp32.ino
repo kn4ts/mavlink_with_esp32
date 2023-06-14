@@ -1,6 +1,6 @@
 #include <mavlink.h>
 #include "mytimer.h"    // 自作タイマー用ヘッダファイルを追加
-#include "mymavlink.h"  // 自作
+#include "mymavlink.h"  // 自作MAVLink通信用ヘッダファイルを追加
 
 #define LED_PIN A10        // LEDピンを定義（デバッグ用）
 

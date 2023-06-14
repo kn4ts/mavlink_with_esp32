@@ -120,10 +120,12 @@ void Mav_Request_Data() {
   }
 }
 
-// コマンド送信関数
-//  COMMAND_INT(#75)メッセージを送信したい
+// サーボ出力変更コマンドの送信関数
+//  引数  int servo_num ... 対象のサーボ番号
+//        int output ... PWM出力（[us]）
+//  COMMAND_LONG(#76)メッセージを送信したい
 //    コマンドは MAV_CMD_DO_SET_SERVO (183)
-//  送信結果は MAV_RESULT で確認？
+//    送信結果は MAV_RESULT で確認できる
 void SendCmdServo( int servo_num, int output ){
   mavlink_message_t msg;  // messageの初期化
   uint8_t buf[MAVLINK_MAX_PACKET_LEN];  // 送信用バッファの確保
