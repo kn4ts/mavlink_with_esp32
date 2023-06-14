@@ -1,3 +1,47 @@
+// Heartbeat メッセージ作成関数
+void SendHeartBeat(){
+  /* =========================================================================================================
+	 HeartBeat通信用の設定
+  ========================================================================================================= */
+  // MAVLink config
+  /* The default UART header for your MCU */
+  int sysid = 1;     ///< ID 20 for this airplane. 1 PX, 255 ground station
+  int compid = 167;  ///< The component sending the message
+  //int compid = 158;               ///< The component sending the message
+  int type = MAV_TYPE_QUADROTOR;  ///< This system is an airplane / fixed wing
+
+  // Define the system type, in this case an airplane -> on-board controller
+  //uint8_t system_type = MAV_TYPE_GENERIC;
+  uint8_t autopilot_type = MAV_AUTOPILOT_INVALID;
+
+  uint8_t system_mode = MAV_MODE_PREFLIGHT;  ///< Booting up
+  uint32_t custom_mode = 0;                  ///< Custom mode, can be defined by user/adopter
+  uint8_t system_state = MAV_STATE_STANDBY;  ///< System ready for flight
+
+  // リクエスト用のメッセージとバッファの初期化
+  mavlink_message_t msg_hb;
+  uint8_t buf_hb[MAVLINK_MAX_PACKET_LEN];  // バッファの確保
+
+  // HeartBeat のメッセージを作成
+  mavlink_msg_heartbeat_pack(
+    sysid,           // System ID
+    compid,          // Component ID
+    &msg_hb,         // メッセージを格納する変数
+    type,            // タイプ
+    autopilot_type,  // Autopilotタイプ
+    system_mode,     // System mode
+    custom_mode,     // Custom mode
+    system_state);   // System State
+
+  // 送信用バッファにメッセージの内容をコピー
+  uint16_t len_hb = mavlink_msg_to_send_buffer(buf_hb, &msg_hb);
+  /* =========================================================================================================
+	 HeartBeat通信用の設定（ここまで）
+  ========================================================================================================= */
+  // HeartBeat 通信の送信
+  Serial2.write(buf_hb, len_hb);
+}
+
 // メッセージ要求関数
 void Mav_Request_Data() {
   // リクエスト用のメッセージとバッファの初期化
@@ -53,8 +97,8 @@ void Mav_Request_Data() {
      */
     // 要求用 メッセージの作成関数
     mavlink_msg_request_data_stream_pack(
-      2,              // System ID
-      200,            // Component ID
+      1, //2,              // System ID
+      167, //200,            // Component ID
       &msg,           // メッセージを格納する変数
       1,              // Target System ID
       0,              // Target Component ID
@@ -76,7 +120,40 @@ void Mav_Request_Data() {
   }
 }
 
+// コマンド送信関数
+//  COMMAND_INT(#75)メッセージを送信したい
+//    コマンドは MAV_CMD_DO_SET_SERVO (183)
+//  送信結果は MAV_RESULT で確認？
+void SendCmdServo( int servo_num, int output ){
+  mavlink_message_t msg;  // messageの初期化
+  uint8_t buf[MAVLINK_MAX_PACKET_LEN];  // 送信用バッファの確保
+  
+  // コマンドのメッセージを作成する関数
+  mavlink_msg_command_long_pack(
+    2, //1, //2,
+    200, //167, //200,
+    &msg,
+    1,
+    0,
+    183, //187,  // 183
+    0,
+    servo_num, //0.5,
+    output, //1200, //0.5,
+    0, //0.5,
+    0, //0.5,
+    0, //0.5,
+    0, //0.5,
+    0
+  );
+
+  // 送信用バッファにメッセージの内容をコピー
+  uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+  // 送信用バッファの内容を Serial2 に書き込み
+  Serial2.write(buf, len);
+}
+
 // メッセージ受信関数
+//  Serial受信バッファにデータがある限りループする
 void comm_receive() {
 
   int cnt = 0; // byte型の読み込み回数カウンタ
@@ -91,6 +168,7 @@ void comm_receive() {
       // デバッグ用表示
       // Serial.println(cnt); // 読み込み数カウントの表示
       char cbuf[4] ;
+//      sprintf(cbuf, "%2#X ", c);
       sprintf(cbuf, "%03d ", c);
       Serial.print(cbuf);
 
