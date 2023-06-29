@@ -114,11 +114,11 @@ void Mav_Request_Data() {
     Serial2.write(buf, len);
 
     // デバッグ用表示
-    Serial.println();
-    Serial.print("MAV Request data, len = ");
-    Serial.print(len);
-    Serial.print(", max len = ");
-    Serial.println(MAVLINK_MAX_PACKET_LEN);
+    // Serial.println();
+    // Serial.print("MAV Request data, len = ");
+    // Serial.print(len);
+    // Serial.print(", max len = ");
+    // Serial.println(MAVLINK_MAX_PACKET_LEN);
   }
 }
 
@@ -155,6 +155,103 @@ void SendCmdServo( int servo_num, int output ){
   // 送信用バッファの内容を Serial2 に書き込み
   Serial2.write(buf, len);
 }
+
+/* メッセージ受信関数
+    引数：
+      *buf  ... メッセージ格納配列（byte配列）の先頭ポインタ．最新受信値のみが格納される．
+      *t    ... #30 の時間格納用変数のポインタ．最新値のみを格納．
+      *s    ... #30 のセンサ値格納用配列の先頭ポインタ．最新値のみを格納．
+      cnt   ... シリアル受信した最新のメッセージのbyte数 
+    戻り値：
+      cnt   ... シリアル受信したメッセージのbyte数の更新値
+*/
+int receive_message( char *buf, uint32_t *t, float *s, int cnt) {
+  // Serial2の受信バッファにデータがあればループ
+  while( Serial2.available() > 0 ){
+    char c = Serial2.read(); // 1文字読み込み
+    if (c==253) {
+      // Serial.println(buf);
+      // printBuf( &buf[0], cnt);
+      readSensorValues( &buf[0], t, &s[0], cnt );  // センサ値(#30)の読み取り
+      //printSensorValues( &s[0] );
+      cnt = 0;  // カウント値リセット
+    }
+    buf[cnt] = c ;  // バッファ変数に格納
+    cnt++ ;
+  }
+  return cnt;
+}
+
+// バッファ表示関数
+void printBuf(char *b, int n){
+  Serial.print(n,DEC);  // カウント値の表示
+  Serial.print(": ");
+  for (int i=0 ; i<n ; i++ ){
+    Serial.print(b[i],DEC); // バッファの中身を表示
+    Serial.print(", ");
+  }
+  Serial.println();
+}
+
+// センサ値の読み取り関数
+void readSensorValues( char *b, uint32_t *t, float *s, int n){
+  if ((int)b[1]+12==n){ // 受信したbyte数が予期される長さと等しいなら
+    // Serial.println("Length!");
+    if ((int)b[7]==30){ // 8つ目（メッセージタイプ）が"30"（センサ値）なら
+      *t  = byte_to_uint32( b[10], b[11], b[12], b[13] );
+      s[0] = byte_to_float( b[14], b[15], b[16], b[17] );
+      s[1] = byte_to_float( b[18], b[19], b[20], b[21] );
+      s[2] = byte_to_float( b[22], b[23], b[24], b[25] );
+      s[3] = byte_to_float( b[26], b[27], b[28], b[29] );
+      s[4] = byte_to_float( b[30], b[31], b[32], b[33] );
+      s[5] = byte_to_float( b[34], b[35], b[36], b[37] );
+    }
+  }
+}
+
+// センサ値の表示関数
+void printSensorValues( uint32_t *t, float *s ){
+  Serial.print(*t);
+  Serial.print(": ");
+  Serial.print(s[0]);
+  Serial.print(", ");
+  Serial.print(s[1]);
+  Serial.print(", ");
+  Serial.print(s[2]);
+  Serial.print(", ");
+  Serial.print(s[3]);
+  Serial.print(", ");
+  Serial.print(s[4]);
+  Serial.print(", ");
+  Serial.println(s[5]);
+}
+
+// floatへの変換関数
+float byte_to_float(uint8_t c0, uint8_t c1, uint8_t c2, uint8_t c3){//c3が最後に来る最上位ビット //1byte ×４をfloatに変換する関数
+
+    int32_t byte4=0;//4byteにまとめるための箱
+    int c_ =0;//符号ビット
+    int32_t b=0;//仮数部
+    int32_t e=0;//指数部
+    float float_type=0;//float型変換後
+
+    byte4=c0+(c1<<(8))+(c2<<(16))+(c3<<(24));//4つの1バイトを1つの4バイトのまとめる
+    c_=c3>>7;//符号ビットのみ残す
+    b = byte4 & (0x7FFFFF);//仮数部以外のビットを0に落とす
+    e = byte4 & (0x7FFFFFFF);//指数部以外のビットを0に落とす
+    e = e>>23;//0に落とした仮数部23桁分を詰めて指数部として使ええる形に
+
+    float_type = pow(-1,c_)*(1+(b*pow(2,-23)))*pow(2,e-127);//floatの計算
+    return float_type;//float値を返す
+}
+
+// uint32への変換関数
+uint32_t byte_to_uint32(uint8_t ct0, uint8_t ct1, uint8_t ct2, uint8_t ct3){//c3が最後に来る最上位ビット //1byte ×４を4byteにし，時間を求める関数
+    uint32_t ct=0;
+    ct=ct0+(ct1<<(8))+(ct2<<(16))+(ct3<<(24));//4つの1バイトを1つの4バイトのまとめる
+    return ct;
+}
+
 
 // メッセージ受信関数
 //  Serial受信バッファにデータがある限りループする
@@ -254,7 +351,7 @@ void comm_receive() {
       break ; // while文を抜ける
     }
     // Serial.print(c);
-    cnt++ ; // 空の読み込み回数カウントアップ
+    cnt++ ; // 空の読み込み回数カウントアップ
   }
 }
 

@@ -24,12 +24,17 @@ void loop() {
 
   // 計測値格納用変数の定義
   uint32_t ctl;
-  float roll;
-  float pitch;
-  float yaw;
-  float rollspeed;
-  float pitchspeed;
-  float yawspeed;
+  // float roll;
+  // float pitch;
+  // float yaw;
+  // float rollspeed;
+  // float pitchspeed;
+  // float yawspeed;
+  float sensor_values[6];
+
+  // MAVLink メッセージ受信用変数
+  int cnt = 0; // byte型の読み込み回数カウンタ
+  char buf[280] ; // MAVLink2は最長280[byte]
 
   // メインループ
   while(1){
@@ -39,20 +44,20 @@ void loop() {
       // SendHeartBeat();
 
       // PWM値の計算
-      float outputfloat = 1000+(roll+PI)*1000/(2*PI) ;
+      float outputfloat = 1000+(sensor_values[0]+PI)*1000/(2*PI) ;
       //Serial.println(roll);
 
       // PWM出力
       // SendCmdServo( 1, 1500);
       SendCmdServo( 1, (int)outputfloat);
       SendCmdServo( 2, (int)outputfloat);
-      // SendCmdServo( 3, (int)outputfloat);
-      // comm_receive();
-      // SendCmdServo( 4, (int)outputfloat);
-      // SendCmdServo( 5, (int)outputfloat);
-      // SendCmdServo( 6, (int)outputfloat);
-  //    SendCmdServo( 1, 2000);
-      Serial.println((int)outputfloat);
+      SendCmdServo( 3, (int)outputfloat);
+      SendCmdServo( 4, (int)outputfloat);
+      SendCmdServo( 5, (int)outputfloat);
+      SendCmdServo( 6, (int)outputfloat);
+
+      // メッセージ(#30)の受信内容を表示      
+      printSensorValues( &ctl, &sensor_values[0]);
 
       // MAV data の要求
       num_hbs_pasados++;
@@ -67,9 +72,10 @@ void loop() {
     }
 
     // センサ値更新
-    updateSensorValues(&ctl,&roll,&pitch,&yaw,&rollspeed,&pitchspeed,&yawspeed);
+    // updateSensorValues(&ctl,&roll,&pitch,&yaw,&rollspeed,&pitchspeed,&yawspeed);
 
     // メッセージ受信関数
-    comm_receive();
+    // comm_receive();
+    cnt = receive_message( &buf[0], &ctl, &sensor_values[0], cnt);
   }
 }
