@@ -1,11 +1,12 @@
-#include <mavlink.h>
-#include "mytimer.h"    // 自作タイマー用ヘッダファイルを追加
 #include "mymavlink.h"  // 自作MAVLink通信用ヘッダファイルを追加
+#include "timer.h"      // 自作タイマー用ヘッダファイルを追加
+#include "serialBT.h"
 
 #define LED_PIN A10        // LEDピンを定義（デバッグ用）
 
 // Setup関数
 void setup() {
+  // シリアル通信（USB）
   Serial.begin(115200);      // シリアル通信（USB）を開始
   pinMode(LED_PIN, OUTPUT);  // LEDピンを出力に設定
 
@@ -13,6 +14,10 @@ void setup() {
 
   // Serial2.begin(57600);      // シリアル通信（to Pixhawk6c）を開始
   Serial2.begin(115200);      // シリアル通信（to Pixhawk6c）を開始
+
+  // シリアル通信（Bluetooth）
+  SerialBT.begin("ESP32_for_pixhawk");      // シリアル通信（to Pixhawk6c）を開始
+  // Serial2.begin(115200);      // シリアル通信（to Pixhawk6c）を開始
 }
 
 // Loop関数
@@ -73,9 +78,14 @@ void loop() {
 
     // センサ値更新
     // updateSensorValues(&ctl,&roll,&pitch,&yaw,&rollspeed,&pitchspeed,&yawspeed);
+    // BT serial 送信
+    SerialBT.println("hello!");
 
-    // メッセージ受信関数
-    // comm_receive();
-    cnt = receive_message( &buf[0], &ctl, &sensor_values[0], cnt);
+    // タイマー割り込みフラグをおろす
+    Flag_timer = 0;
+  }
+  // メッセージ受信関数
+  // comm_receive();
+  cnt = receive_message( &buf[0], &ctl, &sensor_values[0], cnt);
   }
 }
