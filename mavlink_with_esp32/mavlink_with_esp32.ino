@@ -1,5 +1,5 @@
 #include "mymavlink.h"  // 自作MAVLink通信用ヘッダファイルを追加
-#include "timer.h"      // 自作タイマー用ヘッダファイルを追加
+#include "mytimer.h"      // 自作タイマー用ヘッダファイルを追加
 #include "serialBT.h"
 
 #define LED_PIN A10        // LEDピンを定義（デバッグ用）
@@ -87,5 +87,4 @@ void loop() {
   // メッセージ受信関数
   // comm_receive();
   cnt = receive_message( &buf[0], &ctl, &sensor_values[0], cnt);
-  }
 }
