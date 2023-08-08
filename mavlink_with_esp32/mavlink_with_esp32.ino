@@ -67,14 +67,8 @@ void loop() {
       Flag_timer = 0;
     }
 
-    // センサ値更新
-    // BT serial 送信
-    SerialBT.println("hello!");
-
-    // タイマー割り込みフラグをおろす
-    Flag_timer = 0;
-  // メッセージ受信関数
-  // comm_receive();
-  cnt = receive_message( &buf[0], &ctl, &sensor_values[0], cnt);
+    // メッセージ受信関数
+    // comm_receive();
+    cnt = receive_message( &buf[0], &ctl, &sensor_values[0], cnt);
   }
 }
