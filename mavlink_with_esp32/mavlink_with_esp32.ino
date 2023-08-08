@@ -73,8 +73,8 @@ void loop() {
 
     // タイマー割り込みフラグをおろす
     Flag_timer = 0;
-  }
   // メッセージ受信関数
   // comm_receive();
   cnt = receive_message( &buf[0], &ctl, &sensor_values[0], cnt);
+  }
 }
